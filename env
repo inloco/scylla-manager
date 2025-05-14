@@ -4,3 +4,4 @@ export TZ="America/New_York"
 
 export SCYLLA_MANAGER_CLUSTER=xxx
 source <(./sctool.dev completion bash)
+
