@@ -66,6 +66,14 @@ func (c *Client) Status(ctx context.Context) (NodeStatusInfoSlice, error) {
 		}
 	}
 
+	// INCOGNIA: Get host rack (hopefully cached)
+	for i := range all {
+		all[i].Rack, err = c.HostRack(ctx, all[i].Addr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Get live nodes
 	live, err := c.scyllaOps.GossiperEndpointLiveGet(&operations.GossiperEndpointLiveGetParams{Context: ctx})
 	if err != nil {
@@ -173,6 +181,28 @@ func (c *Client) Datacenters(ctx context.Context) (map[string][]string, error) {
 			continue
 		}
 		res[dc] = append(res[dc], p.Key)
+	}
+
+	return res, errs
+}
+
+// INCOGNIA: Racks returns the available racks in this cluster.
+func (c *Client) Racks(ctx context.Context) (map[string][]string, error) {
+	resp, err := c.scyllaOps.StorageServiceHostIDGet(&operations.StorageServiceHostIDGetParams{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string][]string)
+	var errs error
+
+	for _, p := range resp.Payload {
+		rack, err := c.HostRack(ctx, p.Key)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		res[rack] = append(res[rack], p.Key)
 	}
 
 	return res, errs
