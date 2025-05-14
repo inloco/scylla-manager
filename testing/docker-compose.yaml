@@ -123,7 +123,7 @@ services:
     privileged: true
     volumes:
       - type: bind
-        source: ./scylla/cassandra-rackdc.1.properties
+        source: ./scylla/cassandra-rack2dc.1.properties
         target: /etc/scylla/cassandra-rackdc.properties
       - type: bind
         source: ./scylla/scylla-second-cluster.yaml
