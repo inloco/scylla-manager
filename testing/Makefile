@@ -6,7 +6,7 @@ CQLSH_NODE   := $(COMPOSE) exec -T dc1_node_1 cqlsh
 NODETOOL     := $(COMPOSE) exec -T dc1_node_1 nodetool
 SECOND_NODETOOL := $(COMPOSE) exec -T second_cluster_dc1_node_1 nodetool
 SM_NODETOOL  := $(COMPOSE) exec -T scylla-manager-db nodetool
-YQ           := ../bin/yq
+YQ           := yq
 CURRENT_UID  := $(shell id -u)
 CURRENT_GID  := $(shell id -g)
 
@@ -75,19 +75,19 @@ else
 endif
 
 ifeq ($(RAFT_SCHEMA),enabled)
-	@$(YQ) write -i scylla/scylla.yaml 'consistent_cluster_management' true
+	@$(YQ) -i '.consistent_cluster_management = true' scylla/scylla.yaml
 endif
 ifeq ($(RAFT_SCHEMA),disabled)
-	@$(YQ) write -i scylla/scylla.yaml 'consistent_cluster_management' false
+	@$(YQ) -i '.consistent_cluster_management = false' scylla/scylla.yaml
 endif
 ifeq ($(TABLETS),enabled)
-	@$(YQ) write -i scylla/scylla.yaml 'enable_tablets' true
+	@$(YQ) -i '.enable_tablets = true' scylla/scylla.yaml
 endif
 ifeq ($(TABLETS),disabled)
-	@$(YQ) write -i scylla/scylla.yaml 'enable_tablets' false
+	@$(YQ) -i '.enable_tablets = false' scylla/scylla.yaml
 endif
 	@cp scylla/scylla.yaml scylla/scylla-second-cluster.yaml
-	@$(YQ) write -i scylla/scylla-second-cluster.yaml 'cluster_name' 'Managed Other Cluster'
+	@$(YQ) -i '.cluster_name = "Managed Other Cluster"' scylla/scylla-second-cluster.yaml
 
 	@echo "==> Starting containers"
 	mkdir -p $(MINIO_DATA_DIR)
