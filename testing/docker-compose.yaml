@@ -157,8 +157,8 @@ services:
     command: server /data --console-address ":9001" --certs-dir=/.minio
     environment:
       MINIO_REGION: ${MINIO_REGION}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_USER_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_USER_SECRET_KEY}
     volumes:
       - type: bind
         source: ${MINIO_DATA_DIR}
