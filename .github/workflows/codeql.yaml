@@ -19,7 +19,7 @@ on:
     - cron: '17 17 * * 2'
 jobs:
   create-matrix:
-    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event.head_commit.author.username != 'incognia-cd[bot]' && github.event.head_commit.author.username != 'incognia-crossplane[bot]')
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && ((github.event.head_commit.author.username != 'incognia-cd[bot]' && github.event.head_commit.author.username != 'incognia-crossplane[bot]') || (github.event_name == 'schedule'))
     runs-on: ci-docker
     outputs:
       matrix: ${{ steps.set-matrix.outputs.languages }}
@@ -32,7 +32,7 @@ jobs:
           endpoint: ${{ github.event.repository.languages_url }}
   analyze:
     needs: create-matrix
-    if: ${{ needs.create-matrix.outputs.matrix != '[]' }} && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event.head_commit.author.username != 'incognia-cd[bot]' && github.event.head_commit.author.username != 'incognia-crossplane[bot]')
+    if: ${{ needs.create-matrix.outputs.matrix != '[]' }} && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && ((github.event.head_commit.author.username != 'incognia-cd[bot]' && github.event.head_commit.author.username != 'incognia-crossplane[bot]') || (github.event_name == 'schedule'))
     name: Analyze (${{ matrix.language }})
     # Runner size impacts CodeQL analysis time. To learn more, please see:
     #   - https://gh.io/recommended-hardware-resources-for-running-codeql
