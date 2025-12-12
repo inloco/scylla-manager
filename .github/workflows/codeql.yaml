@@ -69,6 +69,7 @@ jobs:
     - name: Bootstrap Action
       uses: inloco/actions/bootstrap@HEAD
       with:
+        install-packages: "file"
         submodules: 'true'
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
