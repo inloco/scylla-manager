@@ -72,8 +72,9 @@ type Client struct {
 	client    retryableClient
 	hostPool  hostpool.HostPool
 
-	mu      sync.RWMutex
-	dcCache map[string]string
+	mu        sync.RWMutex
+	dcCache   map[string]string
+	rackCache map[string]string
 }
 
 // NewClient creates new scylla HTTP client.
@@ -124,6 +125,7 @@ func NewClient(config Config, logger log.Logger) (*Client, error) {
 		hostPool:  pool,
 		client:    retryableWrapClient(client, rc, logger),
 		dcCache:   make(map[string]string),
+		rackCache: make(map[string]string),
 	}, nil
 }
 

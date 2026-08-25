@@ -56,6 +56,7 @@ func (s NodeState) String() string {
 // NodeStatusInfo represents a nodetool status line.
 type NodeStatusInfo struct {
 	Datacenter string
+	Rack       string
 	HostID     string
 	Addr       string
 	Status     NodeStatus
@@ -76,6 +77,21 @@ func (s NodeStatusInfoSlice) Datacenter(dcs []string) NodeStatusInfoSlice {
 	m := strset.New(dcs...)
 	return s.filter(func(i int) bool {
 		return m.Has(s[i].Datacenter)
+	})
+}
+
+// DatacenterRack returns sub slice containing only nodes from given datacenters and racks.
+// When racks is empty, only datacenter filtering is applied.
+func (s NodeStatusInfoSlice) DatacenterRack(dcs []string, racks []string) NodeStatusInfoSlice {
+	if len(racks) == 0 {
+		return s.Datacenter(dcs)
+	}
+
+	dcSet := strset.New(dcs...)
+	rackSet := strset.New(racks...)
+
+	return s.filter(func(i int) bool {
+		return dcSet.Has(s[i].Datacenter) && rackSet.Has(s[i].Rack)
 	})
 }
 

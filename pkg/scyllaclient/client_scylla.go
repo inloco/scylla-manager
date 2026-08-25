@@ -69,6 +69,13 @@ func (c *Client) Status(ctx context.Context) (NodeStatusInfoSlice, error) {
 		}
 	}
 
+	for i := range all {
+		all[i].Rack, err = c.HostRack(ctx, all[i].Addr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Get live nodes
 	live, err := c.scyllaOps.GossiperEndpointLiveGet(&operations.GossiperEndpointLiveGetParams{Context: ctx})
 	if err != nil {
@@ -181,6 +188,28 @@ func (c *Client) Datacenters(ctx context.Context) (map[string][]string, error) {
 	return res, errs
 }
 
+// Racks returns the available racks in this cluster.
+func (c *Client) Racks(ctx context.Context) (map[string][]string, error) {
+	resp, err := c.scyllaOps.StorageServiceHostIDGet(&operations.StorageServiceHostIDGetParams{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string][]string)
+	var errs error
+
+	for _, p := range resp.Payload {
+		rack, err := c.HostRack(ctx, p.Key)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		res[rack] = append(res[rack], p.Key)
+	}
+
+	return res, errs
+}
+
 // GossiperEndpointLiveGet finds live nodes (according to gossiper).
 func (c *Client) GossiperEndpointLiveGet(ctx context.Context) ([]string, error) {
 	live, err := c.scyllaOps.GossiperEndpointLiveGet(&operations.GossiperEndpointLiveGetParams{Context: ctx})
@@ -219,6 +248,13 @@ func (c *Client) HostDatacenter(ctx context.Context, host string) (dc string, er
 
 // HostRack looks up the rack that the given host belongs to.
 func (c *Client) HostRack(ctx context.Context, host string) (string, error) {
+	c.mu.RLock()
+	rack := c.rackCache[host]
+	c.mu.RUnlock()
+	if rack != "" {
+		return rack, nil
+	}
+
 	resp, err := c.scyllaOps.SnitchRackGet(&operations.SnitchRackGetParams{
 		Context: ctx,
 		Host:    &host,
@@ -226,7 +262,13 @@ func (c *Client) HostRack(ctx context.Context, host string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return resp.Payload, nil
+	rack = resp.Payload
+
+	c.mu.Lock()
+	c.rackCache[host] = rack
+	c.mu.Unlock()
+
+	return rack, nil
 }
 
 // HostIDs returns a mapping from host IP to UUID.

@@ -158,6 +158,16 @@ func (s *Service) targetFromProperties(ctx context.Context, clusterID uuid.UUID,
 	}
 	p.expandDefaultTaskProperties()
 
+	dcBlobs := make([]string, 0, len(p.DC))
+	rackBlobs := make([]string, 0, len(p.DC))
+	for _, blob := range p.DC {
+		if strings.HasPrefix(blob, "rack:") {
+			rackBlobs = append(rackBlobs, strings.TrimPrefix(blob, "rack:"))
+			continue
+		}
+		dcBlobs = append(dcBlobs, blob)
+	}
+
 	client, err := s.scyllaClient(ctx, clusterID)
 	if err != nil {
 		return Target{}, errors.Wrapf(err, "get client")
@@ -167,7 +177,7 @@ func (s *Service) targetFromProperties(ctx context.Context, clusterID uuid.UUID,
 	if err != nil {
 		return Target{}, errors.Wrap(err, "read datacenters")
 	}
-	dcs, err := dcfilter.Apply(dcMap, p.DC)
+	dcs, err := dcfilter.Apply(dcMap, dcBlobs)
 	if err != nil {
 		return Target{}, err
 	}
@@ -176,7 +186,16 @@ func (s *Service) targetFromProperties(ctx context.Context, clusterID uuid.UUID,
 		return Target{}, err
 	}
 
-	liveNodes, err := s.getLiveNodes(ctx, client, dcs)
+	rackMap, err := client.Racks(ctx)
+	if err != nil {
+		return Target{}, errors.Wrap(err, "read racks")
+	}
+	racks, err := dcfilter.Apply(rackMap, rackBlobs)
+	if err != nil {
+		return Target{}, err
+	}
+
+	liveNodes, err := s.getLiveNodesByDCAndRack(ctx, client, dcs, racks)
 	if err != nil {
 		return Target{}, err
 	}
@@ -247,6 +266,11 @@ func (s *Service) targetFromProperties(ctx context.Context, clusterID uuid.UUID,
 
 // getLiveNodes returns live nodes of specified datacenters.
 func (s *Service) getLiveNodes(ctx context.Context, client *scyllaclient.Client, dcs []string) (scyllaclient.NodeStatusInfoSlice, error) {
+	return s.getLiveNodesByDCAndRack(ctx, client, dcs, nil)
+}
+
+// getLiveNodesByDCAndRack returns live nodes of specified datacenters and optional racks.
+func (s *Service) getLiveNodesByDCAndRack(ctx context.Context, client *scyllaclient.Client, dcs []string, racks []string) (scyllaclient.NodeStatusInfoSlice, error) {
 	// Get hosts in all DCs
 	status, err := client.Status(ctx)
 	if err != nil {
@@ -255,7 +279,38 @@ func (s *Service) getLiveNodes(ctx context.Context, client *scyllaclient.Client,
 
 	// Filter live nodes
 	nodes := status.Datacenter(dcs)
-	liveNodes, err := client.GetLiveNodes(ctx, status.Datacenter(dcs))
+	for i, node := range nodes {
+		s.logger.Info(
+			ctx,
+			"INCOGNIA: detected node before DatacenterRack Filter",
+			"i",
+			i,
+			"addr",
+			node.Addr,
+			"datacenter",
+			node.Datacenter,
+			"rack",
+			node.Rack,
+		)
+	}
+
+	nodes = status.DatacenterRack(dcs, racks)
+	for i, node := range nodes {
+		s.logger.Info(
+			ctx,
+			"INCOGNIA: node is considered after DatacenterRack Filter",
+			"i",
+			i,
+			"addr",
+			node.Addr,
+			"datacenter",
+			node.Datacenter,
+			"rack",
+			node.Rack,
+		)
+	}
+
+	liveNodes, err := client.GetLiveNodes(ctx, nodes)
 	if err != nil {
 		return nil, err
 	}
